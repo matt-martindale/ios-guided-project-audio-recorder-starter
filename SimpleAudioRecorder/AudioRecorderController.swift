@@ -162,8 +162,6 @@ class AudioRecorderController: UIViewController {
         let name = ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: .withInternetDateTime)
         let file = documents.appendingPathComponent(name, isDirectory: false).appendingPathExtension("caf")
         
-        print("recording URL: \(file)")
-        
         return file
     }
     
@@ -212,6 +210,7 @@ class AudioRecorderController: UIViewController {
         
         do {
             audioRecorder = try AVAudioRecorder(url: recordingURL!, format: format)
+            audioRecorder?.delegate = self
             audioRecorder?.record()
         } catch {
             preconditionFailure("The audio recorder could not be created with \(recordingURL!) and \(format): \(error)")
@@ -261,6 +260,21 @@ extension AudioRecorderController: AVAudioPlayerDelegate {
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         if let error = error {
             print("Error decoding audio: \(error)")
+        }
+    }
+}
+
+extension AudioRecorderController: AVAudioRecorderDelegate {
+    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        if let recordingURL = recordingURL {
+            audioPlayer = try? AVAudioPlayer(contentsOf: recordingURL)
+        }
+        audioRecorder = nil
+    }
+    
+    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
+        if let error = error {
+            print("Audio Recorder Error: \(error)")
         }
     }
 }
