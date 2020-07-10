@@ -18,6 +18,8 @@ class AudioRecorderController: UIViewController {
         }
     }
     
+    weak var timer: Timer?
+    
     @IBOutlet var playButton: UIButton!
     @IBOutlet var recordButton: UIButton!
     @IBOutlet var timeElapsedLabel: UILabel!
@@ -54,33 +56,39 @@ class AudioRecorderController: UIViewController {
     
     func updateViews() {
         playButton.isSelected = isPlaying
+        
+        let elapsedTime = audioPlayer?.currentTime ?? 0
+        timeElapsedLabel.text = timeIntervalFormatter.string(from: elapsedTime)
+    }
+    
+    deinit {
+        timer?.invalidate()
     }
     
     // MARK: - Timer
     
-    /*
     func startTimer() {
         timer?.invalidate()
         
-        timer = Timer.scheduledTimer(withTimeInterval: 0.030, repeats: true) { [weak self] (_) in
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] (_) in
             guard let self = self else { return }
             
             self.updateViews()
             
-            if let audioRecorder = self.audioRecorder,
-                self.isRecording == true {
-                
-                audioRecorder.updateMeters()
-                self.audioVisualizer.addValue(decibelValue: audioRecorder.averagePower(forChannel: 0))
-                
-            }
-            
-            if let audioPlayer = self.audioPlayer,
-                self.isPlaying == true {
-            
-                audioPlayer.updateMeters()
-                self.audioVisualizer.addValue(decibelValue: audioPlayer.averagePower(forChannel: 0))
-            }
+//            if let audioRecorder = self.audioRecorder,
+//                self.isRecording == true {
+//
+//                audioRecorder.updateMeters()
+//                self.audioVisualizer.addValue(decibelValue: audioRecorder.averagePower(forChannel: 0))
+//
+//            }
+//
+//            if let audioPlayer = self.audioPlayer,
+//                self.isPlaying == true {
+//
+//                audioPlayer.updateMeters()
+//                self.audioVisualizer.addValue(decibelValue: audioPlayer.averagePower(forChannel: 0))
+//            }
         }
     }
     
@@ -88,7 +96,6 @@ class AudioRecorderController: UIViewController {
         timer?.invalidate()
         timer = nil
     }
-    */
     
     
     // MARK: - Playback
@@ -118,6 +125,7 @@ class AudioRecorderController: UIViewController {
             try prepareAudioSession()
             audioPlayer?.play()
             updateViews()
+            startTimer()
         } catch {
             print("Cannot play audio: \(error)")
         }
@@ -126,6 +134,7 @@ class AudioRecorderController: UIViewController {
     func pause() {
         audioPlayer?.pause()
         updateViews()
+        cancelTimer()
     }
     
     
