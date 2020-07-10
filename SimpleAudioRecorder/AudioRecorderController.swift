@@ -11,7 +11,12 @@ import AVFoundation
 
 class AudioRecorderController: UIViewController {
     
-    var audioPlayer: AVAudioPlayer?
+    var audioPlayer: AVAudioPlayer? {
+        didSet {
+            guard let audioPlayer = audioPlayer else { return }
+            audioPlayer.delegate = self
+        }
+    }
     
     @IBOutlet var playButton: UIButton!
     @IBOutlet var recordButton: UIButton!
@@ -194,6 +199,20 @@ class AudioRecorderController: UIViewController {
     
     @IBAction func toggleRecording(_ sender: Any) {
         
+    }
+    
+}
+
+extension AudioRecorderController: AVAudioPlayerDelegate {
+    
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        updateViews()
+    }
+    
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        if let error = error {
+            print("Error decoding audio: \(error)")
+        }
     }
 }
 
