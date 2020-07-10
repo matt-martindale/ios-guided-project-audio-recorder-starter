@@ -16,10 +16,13 @@ class AudioRecorderController: UIViewController {
             guard let audioPlayer = audioPlayer else { return }
             audioPlayer.delegate = self
             audioPlayer.isMeteringEnabled = true
+            updateViews()
         }
     }
     
     weak var timer: Timer?
+    var recordingURL: URL?
+    var audioRecorder: AVAudioRecorder?
     
     @IBOutlet var playButton: UIButton!
     @IBOutlet var recordButton: UIButton!
@@ -52,23 +55,38 @@ class AudioRecorderController: UIViewController {
                                                                    weight: .regular)
         
         loadAudio()
-        updateViews()
     }
     
     func updateViews() {
+        playButton.isEnabled = !isRecording
+        recordButton.isEnabled = !isPlaying
+        timeSlider.isEnabled = !isRecording
+        
         playButton.isSelected = isPlaying
+        recordButton.isSelected = isRecording
         
-        let elapsedTime = audioPlayer?.currentTime ?? 0
-        let duration = audioPlayer?.duration ?? 0
-        let timeRemaining = duration.rounded() - elapsedTime
-        
-        timeElapsedLabel.text = timeIntervalFormatter.string(from: elapsedTime)
-        
-        timeSlider.minimumValue = 0
-        timeSlider.maximumValue = Float(duration)
-        timeSlider.value = Float(elapsedTime)
-        
-        timeRemainingLabel.text = timeIntervalFormatter.string(from: timeRemaining)
+        if !isRecording {
+            let elapsedTime = audioPlayer?.currentTime ?? 0
+            let duration = audioPlayer?.duration ?? 0
+            let timeRemaining = duration.rounded() - elapsedTime
+            
+            timeElapsedLabel.text = timeIntervalFormatter.string(from: elapsedTime)
+            
+            timeSlider.minimumValue = 0
+            timeSlider.maximumValue = Float(duration)
+            timeSlider.value = Float(elapsedTime)
+            
+            timeRemainingLabel.text = timeIntervalFormatter.string(from: timeRemaining)
+        } else {
+            let elapsedTime = audioRecorder?.currentTime ?? 0
+            
+            timeElapsedLabel.text = "--:--"
+            
+            timeSlider.minimumValue = 0
+            timeSlider.maximumValue = 1
+            timeSlider.value = 0
+            timeRemainingLabel.text = timeIntervalFormatter.string(from: elapsedTime)
+        }
     }
     
     deinit {
@@ -85,14 +103,14 @@ class AudioRecorderController: UIViewController {
             
             self.updateViews()
             
-//            if let audioRecorder = self.audioRecorder,
-//                self.isRecording == true {
-//
-//                audioRecorder.updateMeters()
-//                self.audioVisualizer.addValue(decibelValue: audioRecorder.averagePower(forChannel: 0))
-//
-//            }
-//
+            if let audioRecorder = self.audioRecorder,
+                self.isRecording == true {
+
+                audioRecorder.updateMeters()
+                self.audioVisualizer.addValue(decibelValue: audioRecorder.averagePower(forChannel: 0))
+
+            }
+
             if let audioPlayer = self.audioPlayer,
                 self.isPlaying == true {
 
@@ -150,18 +168,19 @@ class AudioRecorderController: UIViewController {
     
     // MARK: - Recording
     
+    var isRecording: Bool {
+        audioRecorder?.isRecording ?? false
+    }
+    
     func createNewRecordingURL() -> URL {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         
         let name = ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: .withInternetDateTime)
         let file = documents.appendingPathComponent(name, isDirectory: false).appendingPathExtension("caf")
         
-//        print("recording URL: \(file)")
-        
         return file
     }
     
-    /*
     func requestPermissionOrStartRecording() {
         switch AVAudioSession.sharedInstance().recordPermission {
         case .undetermined:
@@ -192,14 +211,35 @@ class AudioRecorderController: UIViewController {
             break
         }
     }
-    */
     
     func startRecording() {
+        do {
+            try prepareAudioSession()
+        } catch {
+            print("Cannot record audio: \(error)")
+            return
+        }
         
+        recordingURL = createNewRecordingURL()
+        
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+        
+        do {
+            audioRecorder = try AVAudioRecorder(url: recordingURL!, format: format)
+            audioRecorder?.delegate = self
+            audioRecorder?.isMeteringEnabled = true
+            audioRecorder?.record()
+            updateViews()
+            startTimer()
+        } catch {
+            preconditionFailure("The audio recorder could not be created with \(recordingURL!) and \(format): \(error)")
+        }
     }
     
     func stopRecording() {
-        
+        audioRecorder?.stop()
+        updateViews()
+        cancelTimer()
     }
     
     // MARK: - Actions
@@ -222,7 +262,11 @@ class AudioRecorderController: UIViewController {
     }
     
     @IBAction func toggleRecording(_ sender: Any) {
-        
+        if isRecording {
+            stopRecording()
+        } else {
+            requestPermissionOrStartRecording()
+        }
     }
     
 }
@@ -237,6 +281,22 @@ extension AudioRecorderController: AVAudioPlayerDelegate {
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         if let error = error {
             print("Error decoding audio: \(error)")
+        }
+    }
+}
+
+extension AudioRecorderController: AVAudioRecorderDelegate {
+    func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+        if let recordingURL = recordingURL {
+            audioPlayer = try? AVAudioPlayer(contentsOf: recordingURL)
+        }
+        audioRecorder = nil
+        cancelTimer()
+    }
+    
+    func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
+        if let error = error {
+            print("Audio Recorder Error: \(error)")
         }
     }
 }
