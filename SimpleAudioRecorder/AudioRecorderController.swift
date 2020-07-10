@@ -7,8 +7,11 @@
 //
 
 import UIKit
+import AVFoundation
 
 class AudioRecorderController: UIViewController {
+    
+    var audioPlayer: AVAudioPlayer?
     
     @IBOutlet var playButton: UIButton!
     @IBOutlet var recordButton: UIButton!
@@ -41,8 +44,12 @@ class AudioRecorderController: UIViewController {
                                                                    weight: .regular)
         
         loadAudio()
+        updateViews()
     }
     
+    func updateViews() {
+        playButton.isSelected = isPlaying
+    }
     
     // MARK: - Timer
     
@@ -81,10 +88,18 @@ class AudioRecorderController: UIViewController {
     
     // MARK: - Playback
     
+    var isPlaying: Bool {
+        audioPlayer?.isPlaying ?? false
+    }
+    
     func loadAudio() {
         let songURL = Bundle.main.url(forResource: "piano", withExtension: "mp3")!
         
-        
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: songURL)
+        } catch {
+            preconditionFailure("Failure to load audio file: \(error)")
+        }
     }
     
     /*
@@ -96,11 +111,13 @@ class AudioRecorderController: UIViewController {
     */
     
     func play() {
-        
+        audioPlayer?.play()
+        updateViews()
     }
     
     func pause() {
-        
+        audioPlayer?.pause()
+        updateViews()
     }
     
     
@@ -161,7 +178,11 @@ class AudioRecorderController: UIViewController {
     // MARK: - Actions
     
     @IBAction func togglePlayback(_ sender: Any) {
-        
+        if isPlaying {
+            pause()
+        } else {
+            play()
+        }
     }
     
     @IBAction func updateCurrentTime(_ sender: UISlider) {
