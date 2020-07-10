@@ -212,7 +212,12 @@ class AudioRecorderController: UIViewController {
     }
     
     @IBAction func updateCurrentTime(_ sender: UISlider) {
+        if isPlaying {
+            pause()
+        }
         
+        audioPlayer?.currentTime = TimeInterval(sender.value)
+        updateViews()
     }
     
     @IBAction func toggleRecording(_ sender: Any) {
